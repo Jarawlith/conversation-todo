@@ -10,7 +10,7 @@ Only the **mainland China preview edition** is currently released. Its UI is Sim
 
 ## Install
 
-Download `ConversationTodo-Mainland-Setup-0.7.2.exe` from [Releases](https://github.com/Jarawlith/conversation-todo/releases) and run it. The installer includes Node.js; no separate Node installation, manual PowerShell execution, or administrator privileges are required. Windows 10 / 11 x64 is supported.
+Download `ConversationTodo-Mainland-Setup-0.7.3.exe` from [Releases](https://github.com/Jarawlith/conversation-todo/releases) and run it. The installer includes Node.js; no separate Node installation, manual PowerShell execution, or administrator privileges are required. Windows 10 / 11 x64 is supported.
 
 Choose desktop shortcuts and startup behavior during installation. On first launch, select an analysis method and authorize sending necessary conversation text to that service. Closing the widget minimizes it to the tray; use its tray menu to exit.
 
@@ -49,7 +49,7 @@ The extension is not published in the Chrome Web Store. Chrome on ordinary Windo
 
 Default: **30 minutes**; alternatives: 5, 15, 30, 60 minutes, or daily. Checking for changes does not call a model. Only pending new or edited messages trigger analysis. The first scan automatically continues through all readable, non-excluded history in small batches without waiting for the next scheduled check. Pause and failure checkpoints preserve completed work. Initial analysis consumes quota. Web history remains limited to loaded messages.
 
-Message fingerprints and batch checkpoints avoid repeatedly uploading the full history. Requests contain changed messages, limited context, and compact existing-task summaries. Failures are not automatically retried; models are not silently substituted.
+Message fingerprints and batch checkpoints avoid repeatedly uploading the full history. Requests contain changed messages, limited context, and compact existing-task summaries. Network/service failures are not automatically retried and models are not silently substituted. A failed source quote gets at most one additional correction call for that conversation, which consumes quota. Persistent quote failures retain their checkpoint while other conversations continue. Whitespace/full-width differences map back to the original text; fabricated or cross-message quotations are rejected.
 
 ## App-funded model and cost controls
 
