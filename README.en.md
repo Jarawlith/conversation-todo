@@ -10,7 +10,7 @@ Only the **mainland China preview edition** is currently released. Its UI is Sim
 
 ## Install
 
-Download `ConversationTodo-Mainland-Setup-0.7.4.exe` from [Releases](https://github.com/Jarawlith/conversation-todo/releases) and run it. The installer includes Node.js; no separate Node installation, manual PowerShell execution, or administrator privileges are required. Windows 10 / 11 x64 is supported.
+Download `ConversationTodo-Mainland-Setup-0.7.5.exe` from [Releases](https://github.com/Jarawlith/conversation-todo/releases) and run it. The installer includes Node.js; no separate Node installation, manual PowerShell execution, or administrator privileges are required. Windows 10 / 11 x64 is supported.
 
 Choose desktop shortcuts and startup behavior during installation. On first launch, select an analysis method and authorize sending necessary conversation text to that service. Closing the widget minimizes it to the tray; use its tray menu to exit.
 
@@ -35,7 +35,7 @@ The preview installer is unsigned and may appear as an unknown publisher. Uninst
 | Your Codex subscription | Requires an installed, authenticated official Codex tool and an account-accessible model. Model dropdown uses the local Codex catalog when available; choose a supported reasoning effort. Default: `gpt-6-luna`, medium reasoning. Logging into the ChatGPT website alone is insufficient. Uses your account's quota. |
 | Your Claude subscription | Requires installed, authenticated Claude Code. Default: `haiku`; choose Haiku, Sonnet, Opus, Fable or a specific version from a dropdown, or enter a custom model. Fable may bill additional usage credits. The executable path is configurable. Uses your account's quota. |
 | App-provided AI | **The public service is not open. GitHub downloaders cannot currently use the author's API credits.** When enabled, the backend address will be preset; ordinary users do not enter it. |
-| Your API key | Supply your own endpoint, model ID, and key. Supports OpenAI-compatible APIs (including DeepSeek and Doubao) and native Anthropic requests. Availability and compatibility depend on the provider; not all have been tested. You pay the provider. |
+| Your API key | Select DeepSeek, Doubao, OpenAI, Claude or another provider. Presets configure the endpoint and protocol; supply your model ID and key. Other providers allow custom connections. Supports OpenAI-compatible APIs (including DeepSeek and Doubao) and native Anthropic requests. Availability and compatibility depend on the provider; not all have been tested. You pay the provider. |
 
 The app does not collect ChatGPT / Claude passwords, purchase subscriptions, or log into official tools on your behalf. Your own subscriptions or keys do not spend the author's OpenRouter credits.
 

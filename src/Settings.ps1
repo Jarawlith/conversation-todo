@@ -173,22 +173,45 @@ Import-Module -Assembly ([Microsoft.PowerShell.Commands.ConvertToSecureStringCom
     }
     Label $(if ($serviceUrl.Text) {'服务已配置，无需填写地址。'} else {'内置服务暂未开放。你仍可使用自己的订阅或 API Key。'})
     $apiPanel = New-Object Windows.Controls.StackPanel; $panel = $apiPanel
-    Label '接口协议'
+    Label 'API 供应商'
+    $apiSuppliers = @(
+        @{id='deepseek';name='DeepSeek';url='https://api.deepseek.com';protocol='openai'},
+        @{id='doubao';name='豆包';url='https://ark.cn-beijing.volces.com/api/v3';protocol='openai'},
+        @{id='openai';name='OpenAI';url='https://api.openai.com/v1';protocol='openai'},
+        @{id='claude';name='Claude';url='https://api.anthropic.com/v1';protocol='anthropic'},
+        @{id='other';name='其他供应商';url='';protocol='openai'}
+    )
+    $apiSupplier = New-Object Windows.Controls.ComboBox
+    foreach ($supplier in $apiSuppliers) { $item=New-Object Windows.Controls.ComboBoxItem; $item.Content=$supplier.name; $item.Tag=$supplier; [void]$apiSupplier.Items.Add($item) }
+    $apiSupplier.SelectedIndex=4
+    for ($i=0;$i -lt 4;$i++) { if ($script:Settings.apiBase.TrimEnd('/') -eq $apiSuppliers[$i].url -or ($i -eq 0 -and $script:Settings.apiBase.TrimEnd('/') -eq 'https://api.deepseek.com/v1')) {$apiSupplier.SelectedIndex=$i;break} }
+    [void]$panel.Children.Add($apiSupplier)
+    Label '直接连接所选供应商，使用你自己的 Key，费用由该供应商收取。'
+    $apiAdvanced=New-Object Windows.Controls.Expander; $apiAdvanced.Header='连接设置'
+    $apiConnection=New-Object Windows.Controls.StackPanel; $panel=$apiConnection
+    Label '接口格式（其他供应商请按其文档选择）'
     $protocol = New-Object Windows.Controls.ComboBox
     [void]$protocol.Items.Add('OpenAI 兼容（OpenAI、DeepSeek、豆包等）'); [void]$protocol.Items.Add('Anthropic 原生（Claude）')
     $protocol.SelectedIndex = $(if ($script:Settings.apiProtocol -eq 'anthropic') {1} else {0})
     [void]$panel.Children.Add($protocol)
-    $apiBase = Field 'Base URL（包含版本路径；不填 /chat/completions）' $script:Settings.apiBase
-    $examples = New-Object Windows.Controls.Expander; $examples.Header = '查看常用接口地址'
-    $exampleText = New-Object Windows.Controls.TextBlock; $exampleText.TextWrapping = 'Wrap'; $exampleText.Margin = '0,8,0,0'
-    $exampleText.Text = "DeepSeek  https://api.deepseek.com
-豆包  https://ark.cn-beijing.volces.com/api/v3
-OpenAI  https://api.openai.com/v1
-Claude  https://api.anthropic.com/v1"
-    $examples.Content = $exampleText; [void]$panel.Children.Add($examples)
+    $apiBase = Field 'API 地址（Base URL）' $script:Settings.apiBase
+    $apiAdvanced.Content=$apiConnection; $panel=$apiPanel; [void]$panel.Children.Add($apiAdvanced)
     $apiModel = Field '模型 ID（豆包可填写已开通的模型或推理接入点 ID）' $script:Settings.apiModel
     Label 'API Key（当前 Windows 用户加密保存）；留空保留已有密钥'
     $apiKey = New-Object Windows.Controls.PasswordBox; [void]$panel.Children.Add($apiKey)
+    $updateApiSupplier = {
+        $supplier=$apiSupplier.SelectedItem.Tag
+        $custom=$supplier.id -eq 'other'
+        $apiAdvanced.IsExpanded=$custom; $apiBase.IsReadOnly=-not $custom; $protocol.IsEnabled=$custom
+        if (-not $custom) { $protocol.SelectedIndex=$(if($supplier.protocol -eq 'anthropic'){1}else{0}) }
+    }.GetNewClosure()
+    & $updateApiSupplier
+    $apiSupplier.Add_SelectionChanged({
+        $supplier=$apiSupplier.SelectedItem.Tag
+        if ($supplier.url) { $apiBase.Text=$supplier.url } else { $apiBase.Text='' }
+        $apiModel.Text=''; $apiKey.Password=''
+        & $updateApiSupplier
+    }.GetNewClosure())
     $panel = $outer
     foreach ($p in @($codexPanel,$claudePanel,$hostedPanel,$apiPanel)) { [void]$panel.Children.Add($p) }
     $update = {
@@ -229,6 +252,7 @@ Claude  https://api.anthropic.com/v1"
                 $uri = [uri]$address
                 if (-not $uri.IsAbsoluteUri -or $uri.UserInfo -or ($uri.Scheme -ne 'https' -and -not ($uri.Scheme -eq 'http' -and $uri.IsLoopback))) { throw '请填写 HTTPS 接口地址；本机测试可用 HTTP。' }
                 $keyBox = $(if ($selected -eq 'byok') {$apiKey} else {$hostedKey})
+                if ($selected -eq 'byok' -and -not $keyBox.Password -and $apiBase.Text.TrimEnd('/') -ne ([string]$script:Settings.apiBase).TrimEnd('/')) { throw '更换供应商或接口地址后，请填写对应的 API Key。' }
                 $secretName = $(if ($selected -eq 'hosted') {'hosted-' + $script:Edition} else {'byok'})
                 $keyFile = Join-Path $DataDir ($secretName + '.secret')
                 if ($selected -eq 'hosted' -and -not $keyBox.Password -and -not (Test-Path -LiteralPath $keyFile) -and (Test-Path -LiteralPath (Join-Path $DataDir 'hosted.secret'))) { $keyFile = Join-Path $DataDir 'hosted.secret' }
@@ -245,8 +269,10 @@ Claude  https://api.anthropic.com/v1"
             $script:Settings.codexModel = $chosenCodex; $script:Settings.claudeModel = $chosenClaude
             $script:Settings.codexEffort = $codexEffort.SelectedItem.Tag
             $script:Settings.claudePath = $claudePath.Text.Trim(); $script:Settings.serviceUrl = $serviceUrl.Text.Trim()
-            $script:Settings.apiBase = $apiBase.Text.Trim(); $script:Settings.apiModel = $apiModel.Text.Trim()
-            $script:Settings.apiProtocol = $(if ($protocol.SelectedIndex -eq 1) {'anthropic'} else {'openai'})
+            if ($selected -eq 'byok') {
+                $script:Settings.apiBase = $apiBase.Text.Trim(); $script:Settings.apiModel = $apiModel.Text.Trim()
+                $script:Settings.apiProtocol = $(if ($protocol.SelectedIndex -eq 1) {'anthropic'} else {'openai'})
+            }
             $script:Settings.setupComplete = $true; Save-Settings
             if ($script:ModelLabel) { Update-AnalysisCaption }
             $script:IntervalLabel.Text = '每 ' + $script:Settings.intervalMinutes + ' 分钟 · 仅变化时分析'

@@ -10,7 +10,7 @@
 
 ## 下载与安装
 
-到 [GitHub Releases](https://github.com/Jarawlith/conversation-todo/releases) 下载 `ConversationTodo-Mainland-Setup-0.7.4.exe`，双击安装。安装包包含 Node.js 运行环境，无需另装 Node.js 或手动运行脚本；不要求管理员权限。支持 Windows 10 / 11 x64。
+到 [GitHub Releases](https://github.com/Jarawlith/conversation-todo/releases) 下载 `ConversationTodo-Mainland-Setup-0.7.5.exe`，双击安装。安装包包含 Node.js 运行环境，无需另装 Node.js 或手动运行脚本；不要求管理员权限。支持 Windows 10 / 11 x64。
 
 安装时可选择桌面快捷方式和开机启动。首次启动，请在设置里选择分析方式，并同意将必要的对话文字发送至所选服务。关闭窗口会收起到托盘继续运行；右键托盘可以退出。
 
@@ -35,7 +35,7 @@
 | 使用我的 Codex 订阅 | 本机已有官方 Codex 工具并完成登录，使用账户可用的模型。模型可从下拉列表选择，优先读取本机 Codex 目录；推理强度可按模型支持范围选择低、中、高及更高档位。默认 `gpt-6-luna`、中等推理；不是仅登录 ChatGPT 网页就能使用。调用消耗你的账户额度。 |
 | 使用我的 Claude 订阅 | 本机已有官方 Claude Code 并完成登录。默认 `haiku`；下拉列表提供 Haiku、Sonnet、Opus、Fable 和具体版本，也保留自定义型号及安装路径。Fable 可能使用额外付费额度。调用消耗你的账户额度。 |
 | 使用软件提供的 AI | **公共服务尚未开放。GitHub 下载者当前不能使用作者的 API 额度。** 未来接入时，服务地址由软件预置，用户不填写后台地址。 |
-| 使用我的 API Key | 自行填写接口地址、模型 ID 和自己的密钥。支持 OpenAI 兼容接口（如 DeepSeek、豆包等）与 Anthropic 原生协议；实际协议兼容性、可用模型和网络由供应商决定，并非所有供应商都已实测。费用由你承担。 |
+| 使用我的 API Key | 分别选择 DeepSeek、豆包、OpenAI、Claude 或其他供应商。常见供应商自动配置地址和接口格式，填写模型 ID 和自己的密钥即可；其他供应商可自定义连接。支持 OpenAI 兼容接口（如 DeepSeek、豆包等）与 Anthropic 原生协议；实际协议兼容性、可用模型和网络由供应商决定，并非所有供应商都已实测。费用由你承担。 |
 
 本软件不收集你的 ChatGPT / Claude 账号密码，也不代替你购买订阅或完成官方工具登录。使用自己的订阅或 API 不会消耗作者的 OpenRouter 额度。
 
