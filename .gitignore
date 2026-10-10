@@ -1,0 +1,12 @@
+.build/
+dist/
+*.secret
+.env*
+service.json
+settings.json
+node-path.txt
+native-host.json
+server-data/
+tests/settings-v3-*/
+tests/model-settings-*/
+tests/v3-relay-test-*/

@@ -1,0 +1,20 @@
+{
+  "updated": "2026-10-10T08:52:45.588Z",
+  "models": [
+    {
+      "id": "deepseek/deepseek-v4-flash-0731",
+      "name": "DeepSeek: DeepSeek V4 Flash 0731",
+      "family": "deepseek",
+      "context": 1048576,
+      "supported": true,
+      "jsonMode": true,
+      "structured": true,
+      "analysisReasoning": {
+        "enabled": false
+      },
+      "temperatureControl": true,
+      "inputPrice": 0.00869,
+      "outputPrice": 0.27
+    }
+  ]
+}

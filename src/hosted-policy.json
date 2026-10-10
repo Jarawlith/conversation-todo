@@ -1,0 +1,5 @@
+{
+  "mainlandModel": "deepseek/deepseek-v4-flash-0731",
+  "maxPrice": {"prompt": 0.00869, "completion": 0.27},
+  "checkedOn": "2026-10-10"
+}

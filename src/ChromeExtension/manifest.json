@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "对话待办 · 自动采集",
+  "version": "0.2.0",
+  "description": "自动采集已打开的 ChatGPT 与 Claude 对话，交给本机待办组件分析。",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1VIjOg392VVCPSTYo8jo5LQ92pcQEUx2A9HqbxcDf3huvnhXmGrQ0TOZd0jrqg6xrELum/qj0NNqv75RM5jYHHPa4xQpWNR43REur7wcHsokoH67d0HWWJQa2Sp0K2pDiYDioLYM8Zm2iVgapPi7WxMjPpyQJ5qBfk2D/NPVQhb+k0cS0onewLRywZhPiqalG8OLWWhOMv3KMxDiTaipE+bFMCFPEEJJCPFw719nBnF9yQN4Ixpk6xMV53RIzV8VWU0oX8eKEG3rzJq8Z/qtblX8S/2SDk6a8xg53PDN6mlLhjE6SzLeZ2uIRiK4BZiIUKDUxjleBk3uvFdj2+plRwIDAQAB",
+  "permissions": [
+    "nativeMessaging",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://claude.ai/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://claude.ai/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

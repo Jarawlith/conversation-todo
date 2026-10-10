@@ -1,0 +1,12 @@
+{
+  "name": "conversation-todo",
+  "version": "0.7.0",
+  "private": true,
+  "description": "Passive Windows conversation-to-task widget, mainland preview",
+  "scripts": {
+    "test": "node tests/test-v3.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
