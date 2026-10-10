@@ -8,6 +8,12 @@ const { prepare } = require('./incremental');
 const { callProvider } = require('./providers');
 const MODEL = 'gpt-6-luna';
 const EFFORT = 'medium';
+function codexEffort(config) {
+  const effort = config.codexEffort || EFFORT;
+  if (!['none','minimal','low','medium','high','xhigh','max','ultra'].includes(effort)) throw new Error('无效的 Codex 推理强度。');
+  return effort;
+}
+function codexModelArgs(config) { return ['--model', config.codexModel || MODEL, '-c', 'model_reasoning_effort="' + codexEffort(config) + '"']; }
 const TAIL_BYTES = 4 * 1024 * 1024;
 const hash = text => crypto.createHash('sha256').update(text).digest('hex');
 function readJson(file, fallback) {
@@ -125,7 +131,8 @@ async function callCodex(conversations, state, dataDir) {
   if (edition === 'overseas' && config.provider && !['codex','claude','hosted'].includes(config.provider)) throw new Error('海外版支持用户订阅或软件提供的 OpenRouter API。');
   const prompt = buildPrompt(conversations, state);
   if (config.provider && config.provider !== "codex") return callProvider(config, prompt, schema, dataDir);
-  const args = ['exec', '--model', config.codexModel || MODEL, '-c', `model_reasoning_effort="${EFFORT}"`,
+  const effort = codexEffort(config);
+  const args = ['exec', ...codexModelArgs(config),
     '-c', `model_instructions_file=${JSON.stringify(instructionsFile)}`,
     '--ignore-user-config', '--ignore-rules', '--ephemeral', '--skip-git-repo-check',
     '--sandbox', 'read-only', '-c', 'web_search="disabled"',
@@ -144,7 +151,7 @@ async function callCodex(conversations, state, dataDir) {
     child.on('error', error => { clearTimeout(timer); reject(error); });
     child.on('close', code => {
       clearTimeout(timer);
-      if (timedOut) return reject(new Error('Luna 分析超过 3 分钟，请稍后重试。'));
+      if (timedOut) return reject(new Error('Codex 分析超过 3 分钟，请稍后重试。'));
       if (code !== 0) return reject(new Error('Codex 调用失败：' + (errorText || events).slice(-1600)));
       resolve({ events, errorText });
     });
@@ -157,7 +164,7 @@ async function callCodex(conversations, state, dataDir) {
   const answer = readJson(answerFile, null);
   if (!answer || !Array.isArray(answer.conversations)) throw new Error('模型没有返回有效待办结果。');
   fs.unlinkSync(answerFile);
-  return { answer, usage };
+  return { answer, usage, model: config.codexModel || MODEL, effort };
 }
 function validate(value, spec) {
   if (spec.type === 'object') {
@@ -232,7 +239,7 @@ async function runUnlocked(dataDir, sessionsDir, maxBatches = 2) {
     if (action.status && (!state.tasks[id].resolvedAt || action.updated > state.tasks[id].resolvedAt || action.status !== 'active')) state.tasks[id].status = action.status;
     if (action.priority) state.tasks[id].priority = action.priority;
   }
-  const progress = value => writeJson(progressFile, { model: settings().provider || MODEL, effort: EFFORT, time: new Date().toISOString(), ...value });
+  const progress = value => writeJson(progressFile, { model: settings().provider || MODEL, effort: settings().provider === 'codex' ? codexEffort(settings()) : null, time: new Date().toISOString(), ...value });
   progress({ busy: true, message: '正在检查本机对话…' });
   try {
     if (settings().paused) { writeJson(stateFile, state); progress({ busy: false, ok: true, message: '已暂停采集与分析' }); return; }
@@ -275,7 +282,7 @@ async function runUnlocked(dataDir, sessionsDir, maxBatches = 2) {
       merge(state, {conversations: result.answer.conversations.filter(c => !latestExcluded.includes(c.id))}, kept);
       state.lastAnalysis = new Date().toISOString();
       state.lastUsage = result.usage;
-      state.model = result.model || settings().provider || MODEL; state.effort = EFFORT;
+      state.model = result.model || settings().provider || MODEL; state.effort = result.effort || null;
       writeJson(stateFile, state);
       analyzed += batch.length;
       for (const c of batch.filter(c => c.backlog)) changed.push({...c, deferred: true});
@@ -307,7 +314,7 @@ async function run(dataDir, sessionsDir, maxBatches = 2) {
   try { return await runUnlocked(dataDir, sessionsDir, maxBatches); }
   finally { fs.unlinkSync(lock); }
 }
-module.exports = { schema, buildPrompt, readConversation, merge, run, callCodex, readJson, writeJson, MODEL, EFFORT };
+module.exports = { schema, buildPrompt, readConversation, merge, run, callCodex, readJson, writeJson, MODEL, EFFORT, codexModelArgs };
 if (require.main === module) {
   const dataDir = process.argv[2] || path.join(process.env.LOCALAPPDATA, 'CodexTodo');
   if (process.argv[3] === '--purge') {

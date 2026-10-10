@@ -21,7 +21,7 @@ $script:Actions = @{}
 $script:State = $null
 $script:ShowAll = $false
 $script:Exiting = $false
-$script:Settings = @{paused=$false;excluded=@();running=$true;intervalMinutes=30;provider="codex";codexModel="gpt-6-luna";claudeModel="haiku";apiProtocol="openai";apiBase="https://api.deepseek.com";apiModel="deepseek-flash";serviceUrl="";claudePath="";setupComplete=$false}
+$script:Settings = @{paused=$false;excluded=@();running=$true;intervalMinutes=30;provider="codex";codexModel="gpt-6-luna";codexEffort="medium";claudeModel="haiku";apiProtocol="openai";apiBase="https://api.deepseek.com";apiModel="deepseek-flash";serviceUrl="";claudePath="";setupComplete=$false}
 $script:Node = Join-Path $PSScriptRoot 'runtime/node.exe'
 if (-not (Test-Path -LiteralPath $script:Node)) { $script:Node = (Get-Command node.exe -ErrorAction SilentlyContinue | Select-Object -First 1).Source }
 if (-not $script:Node) {
@@ -226,7 +226,7 @@ function Update-AnalysisCaption {
         'hosted' { 'OPENROUTER / ' + $script:Settings.hostedModel }
         'claude' { 'CLAUDE / ' + $script:Settings.claudeModel }
         'byok' { 'API / ' + $script:Settings.apiModel }
-        default { 'CODEX / ' + $script:Settings.codexModel + ' · MEDIUM' }
+        default { 'CODEX / ' + $script:Settings.codexModel + ' · ' + ([string]$script:Settings.codexEffort).ToUpperInvariant() }
     }
 }
 function Start-Check {

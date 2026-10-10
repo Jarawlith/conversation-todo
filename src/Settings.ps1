@@ -39,10 +39,59 @@ Import-Module -Assembly ([Microsoft.PowerShell.Commands.ConvertToSecureStringCom
     [void]$panel.Children.Add($interval)
     Label '仅分析新增或变化的内容。没有变化，不调用模型。'
     $codexPanel = New-Object Windows.Controls.StackPanel; $outer = $panel; $panel = $codexPanel
-    $codexModel = Field 'Codex 模型 · 中等推理' $script:Settings.codexModel
+    $subscriptionModels = Read-Json (Join-Path $PSScriptRoot 'subscription-models.json')
+    $codexOptions = @($subscriptionModels.codex)
+    $codexHome = $(if ($env:CODEX_HOME) {$env:CODEX_HOME} else {Join-Path $env:USERPROFILE '.codex'})
+    $cachePath = Join-Path $codexHome 'models_cache.json'
+    if (Test-Path -LiteralPath $cachePath) {
+        try {
+            $cached = @((Read-Json $cachePath).models | Where-Object { $_.visibility -eq 'list' -and $_.slug -like 'gpt-*' } | ForEach-Object {
+                [pscustomobject]@{id=$_.slug;name=$_.display_name;efforts=@($_.supported_reasoning_levels | ForEach-Object {$_.effort})}
+            })
+            if ($cached.Count) { $codexOptions = $cached }
+        } catch { }
+    }
+    function ModelChoice($options, $value) {
+        $choice = New-Object Windows.Controls.ComboBox; $choice.MaxDropDownHeight = 320
+        foreach ($option in $options) {
+            $item = New-Object Windows.Controls.ComboBoxItem; $item.Content = $option.name; $item.Tag = $option; $item.ToolTip = $option.id
+            [void]$choice.Items.Add($item)
+        }
+        $custom = New-Object Windows.Controls.ComboBoxItem; $custom.Content = '自定义模型…'; $custom.Tag = [pscustomobject]@{id='';efforts=@('low','medium','high')}
+        [void]$choice.Items.Add($custom); [void]$panel.Children.Add($choice)
+        $choice.SelectedIndex = $choice.Items.Count - 1
+        for ($i=0; $i -lt $options.Count; $i++) { if ($options[$i].id -eq $value) {$choice.SelectedIndex=$i; break} }
+        return $choice
+    }
+    Label 'Codex 模型'
+    $codexModel = ModelChoice $codexOptions $script:Settings.codexModel
+    $codexCustom = New-Object Windows.Controls.TextBox; $codexCustom.Text = [string]$script:Settings.codexModel; $codexCustom.ToolTip = '自定义 Codex 模型 ID'; [void]$panel.Children.Add($codexCustom)
+    Label '推理强度'
+    $codexEffort = New-Object Windows.Controls.ComboBox; [void]$panel.Children.Add($codexEffort)
+    $effortNames = @{none='无';minimal='最低';low='低';medium='中等';high='高';xhigh='很高';max='最高';ultra='极高'}
+    $effortState = @{value=$(if ($script:Settings.codexEffort) {$script:Settings.codexEffort} else {'medium'})}
+    $updateCodex = {
+        if ($codexEffort.SelectedItem) { $effortState.value=$codexEffort.SelectedItem.Tag }
+        $codexCustom.Visibility = $(if ($codexModel.SelectedItem.Tag.id) {'Collapsed'} else {'Visible'})
+        $codexEffort.Items.Clear()
+        foreach ($level in $codexModel.SelectedItem.Tag.efforts) {
+            $item = New-Object Windows.Controls.ComboBoxItem; $item.Content = $effortNames[$level] + ' · ' + $level; $item.Tag=$level
+            [void]$codexEffort.Items.Add($item)
+        }
+        $codexEffort.SelectedIndex=0
+        foreach ($item in $codexEffort.Items) { if ($item.Tag -eq 'medium') {$codexEffort.SelectedItem=$item} }
+        foreach ($item in $codexEffort.Items) { if ($item.Tag -eq $effortState.value) {$codexEffort.SelectedItem=$item} }
+    }.GetNewClosure()
+    $codexModel.Add_SelectionChanged($updateCodex); & $updateCodex
+    Label '列表优先使用本机 Codex 目录。模型权限由账号决定；推理越强，通常消耗越多额度。自定义型号请确认支持所选档位。'
     Label '使用本机已安装、已登录的 Codex。无需向本软件提供账号密码。'
     $claudePanel = New-Object Windows.Controls.StackPanel; $panel = $claudePanel
-    $claudeModel = Field 'Claude 模型' $script:Settings.claudeModel
+    Label 'Claude 模型'
+    $claudeModel = ModelChoice @($subscriptionModels.claude) $script:Settings.claudeModel
+    $claudeCustom = New-Object Windows.Controls.TextBox; $claudeCustom.Text = [string]$script:Settings.claudeModel; $claudeCustom.ToolTip = '自定义 Claude 模型 ID'; [void]$panel.Children.Add($claudeCustom)
+    $updateClaude = { $claudeCustom.Visibility = $(if ($claudeModel.SelectedItem.Tag.id) {'Collapsed'} else {'Visible'}) }.GetNewClosure()
+    $claudeModel.Add_SelectionChanged($updateClaude); & $updateClaude
+    Label 'Haiku、Sonnet、Opus 使用官方最新版本别名；具体版本也可直接选择。可用性取决于订阅、组织权限及 Claude Code 版本。Fable 可能使用额外付费额度。'
     $claudeAdvanced = New-Object Windows.Controls.Expander; $claudeAdvanced.Header = '高级设置'
     $claudeFields = New-Object Windows.Controls.StackPanel; $panel = $claudeFields
     $claudePath = Field 'Claude Code 安装路径（留空自动查找）' $script:Settings.claudePath
@@ -190,7 +239,11 @@ Claude  https://api.anthropic.com/v1"
             }
             $script:Settings.provider = $selected; $script:Settings.intervalMinutes = $minutes[$interval.SelectedIndex]
             if ($model.SelectedItem) { $script:Settings.hostedModel = $model.SelectedItem.Tag.id }
-            $script:Settings.codexModel = $codexModel.Text.Trim(); $script:Settings.claudeModel = $claudeModel.Text.Trim()
+            $chosenCodex = $(if ($codexModel.SelectedItem.Tag.id) {$codexModel.SelectedItem.Tag.id} else {$codexCustom.Text.Trim()})
+            $chosenClaude = $(if ($claudeModel.SelectedItem.Tag.id) {$claudeModel.SelectedItem.Tag.id} else {$claudeCustom.Text.Trim()})
+            if (($selected -eq 'codex' -and -not $chosenCodex) -or ($selected -eq 'claude' -and -not $chosenClaude)) { throw '请选择模型或填写自定义模型 ID。' }
+            $script:Settings.codexModel = $chosenCodex; $script:Settings.claudeModel = $chosenClaude
+            $script:Settings.codexEffort = $codexEffort.SelectedItem.Tag
             $script:Settings.claudePath = $claudePath.Text.Trim(); $script:Settings.serviceUrl = $serviceUrl.Text.Trim()
             $script:Settings.apiBase = $apiBase.Text.Trim(); $script:Settings.apiModel = $apiModel.Text.Trim()
             $script:Settings.apiProtocol = $(if ($protocol.SelectedIndex -eq 1) {'anthropic'} else {'openai'})

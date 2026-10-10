@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$NodeExe,[Parameter(Mandatory=$true)][string]$ISCC)
+﻿param([Parameter(Mandatory=$true)][string]$NodeExe,[Parameter(Mandatory=$true)][string]$ISCC)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $stage = Join-Path $root '.build/payload'
@@ -18,4 +18,4 @@ if ($LASTEXITCODE -ne 0) { throw 'Launcher build failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Native host build failed.' }
 & $compiler /Q (Join-Path $root 'installer/ConversationTodo.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
-Write-Output (Join-Path $root 'dist/ConversationTodo-Mainland-Setup-0.7.exe')
+Write-Output (Join-Path $root 'dist/ConversationTodo-Mainland-Setup-0.7.1.exe')
