@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const {originalEvidence, run, readJson} = require('../src/analyze');
+const {originalEvidence, run, readJson, requestConversations, buildPrompt} = require('../src/analyze');
 
 async function main() {
   const messages = [{text:'前文😀 请在明天\n完成 ＡＢＣ 报告。后文'}];
@@ -11,6 +11,11 @@ async function main() {
   assert.equal(originalEvidence(messages,'明天交付总结报告'),null);
   assert.equal(originalEvidence([{text:'准备报告'},{text:'明天提交'}],'准备报告明天提交'),null);
   assert.equal(originalEvidence(messages,'   '),null);
+  const request=requestConversations([{id:'long-source-a',messages:[]},{id:'long-source-b',messages:[]}],{tasks:{t:{id:'t',sourceId:'long-source-b',title:'已有任务',status:'active'}}});
+  assert.deepEqual(request.schema.properties.conversations.items.properties.id.enum,['conversation_1','conversation_2']);
+  assert.equal(request.state.tasks.t.sourceId,'conversation_2');
+  assert.ok(buildPrompt(request.conversations,request.state).includes('已有任务'));
+  assert.deepEqual(request.restore({conversations:[{id:'conversation_2'},{id:'conversation_1'},{id:'unexpected'}]}).conversations.map(c=>c.id),['long-source-b','long-source-a','unexpected']);
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'conversation-evidence-'));
   const previousClaude=process.env.CLAUDE_CONFIG_DIR;
   process.env.CLAUDE_CONFIG_DIR=path.join(root,'no-claude');
@@ -47,6 +52,32 @@ async function main() {
     });
     assert.equal(retried,1);
     assert.equal(readJson(path.join(failed,'state.json')).initialScanComplete,true);
+
+    const wrongIds=path.join(root,'wrong-ids');let idRepairs=0;
+    await run(wrongIds,sessions,2,async(batch,state,data,repair)=>{
+      if(repair){idRepairs++;assert.equal(batch.length,1);return answer(batch);}
+      const result=answer(batch);
+      const wrong=result.answer.conversations.find(c=>c.id==='c0');
+      if(wrong)wrong.id='invented-id';
+      return result;
+    });
+    assert.equal(idRepairs,1);
+    assert.equal(Object.keys(readJson(path.join(wrongIds,'state.json')).tasks).length,8);
+    assert.equal(readJson(path.join(wrongIds,'state.json')).initialScanComplete,true);
+
+    const duplicateIds=path.join(root,'duplicate-ids');let duplicateRepairs=0;
+    await run(duplicateIds,sessions,2,async(batch,state,data,repair)=>{
+      const result=answer(batch);
+      if(repair){duplicateRepairs++;result.answer.conversations[0].id='wrong-again';return result;}
+      const duplicate=result.answer.conversations.find(c=>c.id==='c0');
+      if(duplicate)result.answer.conversations.push({...duplicate});
+      return result;
+    });
+    assert.equal(duplicateRepairs,1);
+    assert.equal(Object.keys(readJson(path.join(duplicateIds,'state.json')).tasks).length,7);
+    assert.ok(!readJson(path.join(duplicateIds,'state.json')).sources.c0.messageHashes);
+    assert.equal(readJson(path.join(duplicateIds,'progress.json')).remaining,1);
+    console.log('PASS: constrained short IDs, explicit reverse mapping, wrong-ID targeted repair, duplicate IDs isolated without advancing checkpoint');
     console.log('PASS: original whitespace/full-width quotes, fabricated and cross-message quotes rejected, targeted bounded repair, other conversations saved, failed checkpoint resumed');
   } finally {
     if(previousClaude===undefined)delete process.env.CLAUDE_CONFIG_DIR;else process.env.CLAUDE_CONFIG_DIR=previousClaude;
