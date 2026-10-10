@@ -220,11 +220,12 @@ function merge(state, answer, conversations) {
     state.sources[group.id] = { digest: source.digest, signature: source.signature, messageHashes: source.messageHashes, title: source.title, file: source.file, sourceType: source.sourceType || 'Codex', url: source.url || '', truncated: source.truncated };
   }
 }
-async function runUnlocked(dataDir, sessionsDir, maxBatches = 2) {
+async function runUnlocked(dataDir, sessionsDir, maxBatches = 2, analyzeBatch = callCodex) {
   fs.mkdirSync(dataDir, { recursive: true });
   const stateFile = path.join(dataDir, 'state.json');
   const progressFile = path.join(dataDir, 'progress.json');
   const state = readJson(stateFile, { version: 1, sources: {}, tasks: {} });
+  const initialScan = !state.initialScanComplete;
   const settings = () => readJson(path.join(dataDir, 'settings.json'), {});
   const purge = () => {
     const excluded = settings().excluded || [];
@@ -251,6 +252,7 @@ async function runUnlocked(dataDir, sessionsDir, maxBatches = 2) {
     const files = descriptors.map(item => ({...item, stat: fs.statSync(item.file)})).sort((a, b) => b.stat.mtimeMs - a.stat.mtimeMs);
     const unchanged = new Set(Object.values(state.sources).map(s => s.file + '|' + s.signature));
     const changed = [];
+    const originals = new Map();
     let readErrors = 0;
     for (const { file, stat, read } of files) {
       if (Object.entries(state.sources).some(([id, s]) => s.file === file && (settings().excluded || []).includes(id))) continue;
@@ -262,21 +264,23 @@ async function runUnlocked(dataDir, sessionsDir, maxBatches = 2) {
         state.sources[c.id] = { ...state.sources[c.id], digest: c.digest, signature: c.signature, title: c.title, file, truncated: c.truncated };
       } else {
         const delta = prepare(c, state.sources[c.id]);
-        if (delta) changed.push(delta);
+        if (delta) { changed.push(delta); originals.set(c.id, c); }
         else state.sources[c.id] = {...state.sources[c.id], signature: c.signature, digest: c.digest};
       }
     }
     writeJson(stateFile, state);
     let analyzed = 0;
-    while (changed.length && analyzed < maxBatches * 3) {
+    const completed = new Set();
+    const pendingTotal = changed.length;
+    while (changed.length && (initialScan || analyzed < maxBatches * 3)) {
       if (settings().paused) break;
       const excluded = purge();
       if (changed[0]?.deferred) break;
       const batchSize=['hosted','byok'].includes(settings().provider)?1:3;
       const batch = changed.splice(0, batchSize).filter(c => !excluded.includes(c.id) && !c.deferred);
       if (!batch.length) continue;
-      progress({ busy: true, message: `正在分析 ${batch.length} 个会话…`, remaining: changed.length + batch.length, total: files.length });
-      const result = await callCodex(batch, state, dataDir);
+      progress({ busy: true, message: initialScan ? `首次历史分析：已完成 ${completed.size} / ${pendingTotal} 个对话，正在继续…` : `正在分析 ${batch.length} 个会话…`, remaining: changed.length + batch.length, total: files.length });
+      const result = await analyzeBatch(batch, state, dataDir);
       const latestExcluded = purge();
       const kept = batch.filter(c => !latestExcluded.includes(c.id));
       merge(state, {conversations: result.answer.conversations.filter(c => !latestExcluded.includes(c.id))}, kept);
@@ -285,17 +289,23 @@ async function runUnlocked(dataDir, sessionsDir, maxBatches = 2) {
       state.model = result.model || settings().provider || MODEL; state.effort = result.effort || null;
       writeJson(stateFile, state);
       analyzed += batch.length;
-      for (const c of batch.filter(c => c.backlog)) changed.push({...c, deferred: true});
+      for (const c of kept) {
+        if (c.backlog) {
+          const next = initialScan ? prepare(originals.get(c.id), state.sources[c.id]) : {...c, deferred: true};
+          if (next) changed.push(next);
+        } else completed.add(c.id);
+      }
     }
+    if (initialScan && !changed.length && !readErrors && !settings().paused) state.initialScanComplete = true;
     purge(); writeJson(stateFile, state);
     progress({ busy: false, ok: true, remaining: changed.length, total: files.length,
-      message: (settings().paused ? '已暂停采集与分析' : changed.length ? `已分析 ${analyzed} 个；还有 ${changed.length} 个，下次检查继续` : analyzed ? `已更新 ${analyzed} 个会话 · ${new Date().toLocaleTimeString('zh-CN')}` : '对话没有变化 · 未调用模型') + (readErrors ? ` · ${readErrors} 个记录读取失败` : '') });
+      message: (settings().paused ? '已暂停采集与分析' : initialScan && state.initialScanComplete ? `首次历史分析完成 · 本次处理 ${completed.size} 个对话` : changed.length ? `已分析 ${analyzed} 个；还有 ${changed.length} 个，下次检查继续` : analyzed ? `已更新 ${analyzed} 个会话 · ${new Date().toLocaleTimeString('zh-CN')}` : '对话没有变化 · 未调用模型') + (readErrors ? ` · ${readErrors} 个记录读取失败` : '') });
   } catch (error) {
     progress({ busy: false, ok: false, message: error.message,validation:error.validation });
     throw error;
   }
 }
-async function run(dataDir, sessionsDir, maxBatches = 2) {
+async function run(dataDir, sessionsDir, maxBatches = 2, analyzeBatch = callCodex) {
   fs.mkdirSync(dataDir, { recursive: true });
   const lock = path.join(dataDir, 'analysis.lock');
   if (fs.existsSync(lock)) {
@@ -311,7 +321,7 @@ async function run(dataDir, sessionsDir, maxBatches = 2) {
   try { fd = fs.openSync(lock, 'wx'); }
   catch (error) { if (error.code === 'EEXIST') return; throw error; }
   fs.writeFileSync(fd, String(process.pid)); fs.closeSync(fd);
-  try { return await runUnlocked(dataDir, sessionsDir, maxBatches); }
+  try { return await runUnlocked(dataDir, sessionsDir, maxBatches, analyzeBatch); }
   finally { fs.unlinkSync(lock); }
 }
 module.exports = { schema, buildPrompt, readConversation, merge, run, callCodex, readJson, writeJson, MODEL, EFFORT, codexModelArgs };
