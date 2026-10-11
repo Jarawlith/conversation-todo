@@ -10,6 +10,56 @@ namespace ConversationTodo {
         [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int key);
         public static bool IsDown(int key) { return (GetAsyncKeyState(key) & 0x8000) != 0; }
     }
+    public static class MouseShortcut {
+        [StructLayout(LayoutKind.Sequential)] struct MouseData {
+            public int x, y; public uint data, flags, time; public UIntPtr extra;
+        }
+        delegate IntPtr MouseCallback(int code, IntPtr message, IntPtr data);
+        [DllImport("user32.dll")] static extern IntPtr SetWindowsHookEx(int id, MouseCallback callback, IntPtr module, uint thread);
+        [DllImport("user32.dll")] static extern bool UnhookWindowsHookEx(IntPtr hook);
+        [DllImport("user32.dll")] static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr message, IntPtr data);
+        [DllImport("user32.dll")] static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
+        [DllImport("kernel32.dll", CharSet=CharSet.Auto)] static extern IntPtr GetModuleHandle(string name);
+        static readonly MouseCallback callback = OnMouse;
+        static IntPtr hook, window;
+        static int button;
+        static uint modifiers;
+        public static bool Pressed { get; private set; }
+        public static bool Enable(IntPtr hwnd, int key, uint mods) {
+            Disable(); window=hwnd; button=key == 5 ? 1 : 2; modifiers=mods;
+            hook=SetWindowsHookEx(14, callback, GetModuleHandle(null), 0);
+            return hook != IntPtr.Zero;
+        }
+        public static void Disable() {
+            if (hook != IntPtr.Zero) UnhookWindowsHookEx(hook);
+            hook=IntPtr.Zero; Pressed=false; button=0;
+        }
+        static uint CurrentModifiers() {
+            uint result=0;
+            if (Hotkey.IsDown(18)) result |= 1;
+            if (Hotkey.IsDown(17)) result |= 2;
+            if (Hotkey.IsDown(16)) result |= 4;
+            if (Hotkey.IsDown(91) || Hotkey.IsDown(92)) result |= 8;
+            return result;
+        }
+        // Only post a message here: microphone and recognition work run outside the hook.
+        static bool HandleButton(int message, int selected, uint mods) {
+            if (selected != button || button == 0) return false;
+            if (message == 0x20B && (Pressed || mods == modifiers)) {
+                if (!Pressed) { Pressed=true; PostMessage(window, 0x8001, IntPtr.Zero, IntPtr.Zero); }
+                return true;
+            }
+            if (message == 0x20C && Pressed) { Pressed=false; return true; }
+            return false;
+        }
+        static IntPtr OnMouse(int code, IntPtr message, IntPtr pointer) {
+            if (code >= 0 && (message.ToInt32() == 0x20B || message.ToInt32() == 0x20C)) {
+                var data=(MouseData)Marshal.PtrToStructure(pointer, typeof(MouseData));
+                if (HandleButton(message.ToInt32(), (int)(data.data >> 16), CurrentModifiers())) return new IntPtr(1);
+            }
+            return CallNextHookEx(hook, code, message, pointer);
+        }
+    }
     public sealed class Microphone : IDisposable {
         [StructLayout(LayoutKind.Sequential, Pack=2)] struct Format {
             public ushort tag, channels; public uint rate, bytesPerSecond;

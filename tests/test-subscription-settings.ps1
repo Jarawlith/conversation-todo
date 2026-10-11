@@ -18,7 +18,7 @@ $timer.Interval=[timespan]::FromMilliseconds(200)
 $timer.Add_Tick({
     $timer.Stop()
     try {
-        $dialog=$script:Window.OwnedWindows[0];$p=$dialog.Content.Content
+        $dialog=$script:Window.OwnedWindows[0];$p=$dialog.Content.Tag.analysis
         $combos=@($p.Children|Where-Object {$_ -is [Windows.Controls.ComboBox]})
         $combos[0].SelectedIndex=$(if($Claude){1}else{0})
         $panels=@($p.Children|Where-Object {$_ -is [Windows.Controls.StackPanel]})

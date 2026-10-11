@@ -1,4 +1,4 @@
-﻿# Conversation Todo
+# Conversation Todo
 
 [简体中文](README.md) · [English](README.en.md)
 
@@ -10,7 +10,7 @@ Only the **mainland China preview edition** is currently released. Its UI is Sim
 
 ## Install
 
-Download `ConversationTodo-Mainland-Setup-0.8.0.exe` from [Releases](https://github.com/Jarawlith/conversation-todo/releases) and run it. The installer includes Node.js; no separate Node installation, manual PowerShell execution, or administrator privileges are required. Windows 10 / 11 x64 is supported.
+Download `ConversationTodo-Mainland-Setup-0.9.0.exe` from [Releases](https://github.com/Jarawlith/conversation-todo/releases) and run it. The installer includes Node.js; no separate Node installation, manual PowerShell execution, or administrator privileges are required. Windows 10 / 11 x64 is supported.
 
 Choose desktop shortcuts and startup behavior during installation. On first launch, select an analysis method and authorize sending necessary conversation text to that service. Closing the widget minimizes it to the tray; use its tray menu to exit.
 
@@ -25,7 +25,7 @@ The preview installer is unsigned and may appear as an unknown publisher. Uninst
 - Explicit completion or cancellation updates existing tasks while retaining records. Sources remain separate across conversations; there is no automatic cross-conversation deduplication.
 - Pause collection and analysis, or exclude a conversation. Exclusion removes derived tasks and locally captured web text without editing original logs.
 - Dark, draggable, collapsible, always-on-top widget with tray and startup support.
-- Hold the global F2 shortcut to capture an idea, release to transcribe locally, then edit and confirm before saving a task. Mandarin, Cantonese and English are supported; the shortcut is configurable.
+- Hold F2 to capture an idea and release to transcribe locally in the background. Text is saved automatically to My Ideas without opening a window or switching apps. Supports Mandarin, Cantonese and English, configurable keyboard shortcuts and mouse side buttons 1 / 2.
 
 ![Settings example](docs/settings.png)
 
@@ -35,11 +35,11 @@ The preview installer is unsigned and may appear as an unknown publisher. Uninst
 
 Hold **F2** to record and release to transcribe. First use downloads an INT8 SenseVoiceSmall model (about 160 MB compressed, 239 MB on disk) from GitHub; after downloading, hold the shortcut again. Subsequent recognition works offline, without Windows voice typing, cloud transcription or subscription/API token costs. Original model rights belong to its authors.
 
-Expand **Voice capture** in Settings, or open voice settings from the capture window, to change the shortcut and select automatic language detection, Mandarin, Cantonese or English. Choose another shortcut if one is occupied. Recording uses the Windows default microphone and requires desktop microphone permission.
+Settings now has a left sidebar: Analysis, Voice capture, Web collection, and Privacy. In Voice capture, click the shortcut field and press a new key or mouse side button, choose a language, and save. Supports F1–F11, modifier-key combinations and mouse side buttons 1 / 2. Shortcuts pause while Settings is open and resume when it closes. Choose another keyboard shortcut if occupied. The selected mouse button records instead of navigating back/forward. Recording uses the Windows default microphone and requires desktop microphone permission.
 
-Only **Save as task** persists the editable text; cancel creates no task. Audio is transient, removed after inference or cancellation; crash leftovers are cleaned on next launch. Captured tasks are stored separately from conversation analysis and are not submitted to that analysis service. Voice capture does not require an analysis subscription or key.
+Recording and recognition run in the background. Successful text is automatically saved as an idea; empty or failed results create nothing. Click My Ideas in the widget or tray to edit later or add an idea to your task list. Existing voice tasks retain their status. Audio is transient and removed after inference; crash leftovers are cleaned on next launch. Ideas are stored separately and never submitted to the conversation analyzer. Voice capture does not require an analysis subscription or key.
 
-Each recording is limited to two minutes, with bounded inference chunks for longer audio; boundaries may affect recognition. The model loads per capture and the worker exits afterward to release RAM. Check names, numbers and accents before saving. [Model adapter architecture](docs/SPEECH-ENGINES.md)
+Each recording is limited to two minutes, with bounded inference chunks for longer audio; boundaries may affect recognition. The model loads per capture and the worker exits afterward to release RAM. Review and correct names, numbers and accents in My Ideas. [Model adapter architecture](docs/SPEECH-ENGINES.md)
 
 | Method | Requirements and cost |
 | --- | --- |
@@ -52,7 +52,7 @@ The app does not collect ChatGPT / Claude passwords, purchase subscriptions, or 
 
 ### Optional Chrome setup
 
-Local log collection needs no extension. For web conversations, expand the Chrome capture guide in Settings and click the button to open Chrome and copy the extension directory. Enable Developer Mode at `chrome://extensions`, choose **Load unpacked**, paste the copied path, then refresh your chat tabs. This is a one-time step.
+Local log collection needs no extension. For web conversations, choose Web collection in the Settings sidebar and click the button to open Chrome and copy the extension directory. Enable Developer Mode at `chrome://extensions`, choose **Load unpacked**, paste the copied path, then refresh your chat tabs. This is a one-time step.
 
 The extension is not published in the Chrome Web Store. Chrome on ordinary Windows computers does not permit silent installation of unpublished extensions, so an EXE cannot complete this confirmation for you. [Official Chrome documentation](https://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
 

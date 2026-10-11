@@ -21,4 +21,4 @@ if ($LASTEXITCODE -ne 0) { throw 'Launcher build failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Native host build failed.' }
 & $compiler /Q (Join-Path $root 'installer/ConversationTodo.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
-Write-Output (Join-Path $root 'dist/ConversationTodo-Mainland-Setup-0.8.0.exe')
+Write-Output (Join-Path $root 'dist/ConversationTodo-Mainland-Setup-0.9.0.exe')

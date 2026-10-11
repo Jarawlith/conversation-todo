@@ -109,7 +109,8 @@ $layout = @'
     <StackPanel x:Name="Cards"/>
    </ScrollViewer>
    <StackPanel Grid.Row="4" x:Name="Footer" Margin="0,14,0,0">
-    <Button x:Name="Capture" Content="记录想法 · 按住 F2 说话" Margin="0,0,0,8"/>
+    <Button x:Name="Capture" Content="我的想法 · 按住 F2 记录" Margin="0,0,0,8"/>
+    <TextBlock x:Name="VoiceNotice" FontSize="10" Foreground="#90DECE" TextWrapping="Wrap" Margin="0,0,0,5"/>
     <Button x:Name="More" Content="展开其他任务" Visibility="Collapsed" Margin="0,0,0,8"/>
     <TextBlock x:Name="Status" Text="准备检查 Codex、Claude Code 与网页对话…" FontSize="11" Foreground="#8BA0BA" TextWrapping="Wrap" MaxHeight="60"/>
     <Grid Margin="0,9,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -127,7 +128,7 @@ $reader = New-Object System.Xml.XmlNodeReader ([xml]$layout)
 $script:Window = [Windows.Markup.XamlReader]::Load($reader)
 $themeReader = [Xml.XmlReader]::Create((Join-Path $PSScriptRoot 'SettingsTheme.xaml'))
 try { $script:Window.Resources.MergedDictionaries.Add([Windows.Markup.XamlReader]::Load($themeReader)) } finally { $themeReader.Close() }
-foreach ($name in @('Header','Pin','Collapse','Close','Summary','Count','Refresh','Tabs','ActiveTab','PendingTab','DoneTab','IgnoredTab','Scroller','Cards','Footer','Status','Pause','Sources','More','SettingsButton','IntervalLabel','ModelLabel','Capture')) {
+foreach ($name in @('Header','Pin','Collapse','Close','Summary','Count','Refresh','Tabs','ActiveTab','PendingTab','DoneTab','IgnoredTab','Scroller','Cards','Footer','Status','Pause','Sources','More','SettingsButton','IntervalLabel','ModelLabel','Capture','VoiceNotice')) {
     Set-Variable -Scope Script -Name $name -Value $script:Window.FindName($name)
 }
 $area = [System.Windows.SystemParameters]::WorkArea
@@ -184,13 +185,16 @@ function Render-Tasks {
     $script:Count.Text = [string]@($all | Where-Object status -eq 'active').Count
     $script:PendingTab.Content = '待确认 ' + @($all | Where-Object status -eq 'pending').Count
     foreach ($tab in @($script:ActiveTab,$script:PendingTab,$script:DoneTab,$script:IgnoredTab)) { $tab.Background = '#202C3D' }
-    @{active=$script:ActiveTab;pending=$script:PendingTab;done=$script:DoneTab;ignored=$script:IgnoredTab}[$script:Filter].Background = '#36506E'
+    $selectedTab=@{active=$script:ActiveTab;pending=$script:PendingTab;done=$script:DoneTab;ignored=$script:IgnoredTab}[$script:Filter]
+    if ($selectedTab) { $selectedTab.Background = '#36506E' }
+    $script:Capture.Background = if ($script:Filter -eq 'ideas') {'#36506E'} else {'#202C3D'}
     $tasks = @($all | Where-Object { $_.status -eq $script:Filter -or ($script:Filter -eq 'done' -and $_.status -eq 'cancelled') } | Sort-Object priority, @{Expression={ if ($_.due) { $_.due } else { '9999' } }}, created)
+    if ($script:Filter -eq 'ideas') { $tasks=@($all | Where-Object sourceId -eq 'manual' | Sort-Object created -Descending) }
     $script:More.Visibility = if ($tasks.Count -gt 3) { 'Visible' } else { 'Collapsed' }
     $script:More.Content = if ($script:ShowAll) { '收起，只看前三项' } else { '展开其他 ' + [math]::Max(0, $tasks.Count - 3) + ' 项' }
     if (-not $script:ShowAll) { $tasks = @($tasks | Select-Object -First 3) }
     if (-not $tasks.Count) {
-        $empty = @{ active='这里还没有待办。可以检查对话，也可以按住快捷键记录想法。'; pending='AI 建议会出现在这里，由你决定是否加入待办。'; done='完成的待办会保留在这里。'; ignored='忽略的待办会保留在这里，可以重新加入。' }[$script:Filter]
+        $empty = @{ active='这里还没有待办。可以检查对话，也可以按住快捷键记录想法。'; pending='AI 建议会出现在这里，由你决定是否加入待办。'; done='完成的待办会保留在这里。'; ignored='忽略的待办会保留在这里，可以重新加入。'; ideas='按住快捷键说出想法，松开后自动保存到这里。你可以稍后修改或加入待办。' }[$script:Filter]
         $script:Cards.Children.Add((Text-Line $empty 13 '#8BA0BA')) | Out-Null
     }
     foreach ($task in $tasks) {
@@ -203,7 +207,8 @@ function Render-Tasks {
         if ($task.status -eq 'cancelled') { $label += '  ·  已取消' }
         $body.Children.Add((Text-Line $label 10 $color)) | Out-Null
         $body.Children.Add((Text-Line $task.title 14 '#F1F5FB')) | Out-Null
-        $body.Children.Add((Text-Line $task.reason 11 '#9BB0C9')) | Out-Null
+        $description = if ($script:Filter -eq 'ideas') {$task.evidence} else {$task.reason}
+        $body.Children.Add((Text-Line $description 11 '#9BB0C9')) | Out-Null
         $source = New-Object System.Windows.Controls.Expander
         $source.Header = '查看对话依据 · ' + $(if ($task.sourceType) { $task.sourceType } else { 'Codex' }); $source.Foreground = '#83BEB3'; $source.FontSize = 10; $source.Margin = '0,0,0,10'
         $details = New-Object System.Windows.Controls.StackPanel
@@ -214,14 +219,19 @@ function Render-Tasks {
         $open.Tag = if ($task.sourceUrl) { $task.sourceUrl } elseif ($task.sourceType -eq 'Claude Code') { $task.sourceFile } else { 'codex://threads/' + $task.sourceId }
         $open.Add_Click({ Start-Process $this.Tag })
         if ($task.sourceId -ne 'manual') { $details.Children.Add($open) | Out-Null }
+        if ($task.sourceId -eq 'manual') { $source.Header='记录时间 · ' + ([datetime]$task.created).ToLocalTime().ToString('yyyy-MM-dd HH:mm') }
         $source.Content = $details; $body.Children.Add($source) | Out-Null
         $buttons = New-Object System.Windows.Controls.WrapPanel
-        if ($task.status -eq 'pending') { $buttons.Children.Add((Action-Button '加入待办' $task.id 'active')) | Out-Null }
+        if ($task.status -in @('pending','idea')) { $buttons.Children.Add((Action-Button '加入待办' $task.id 'active')) | Out-Null }
         if ($task.status -in @('active','pending')) {
             $buttons.Children.Add((Action-Button '完成' $task.id 'done')) | Out-Null
             $buttons.Children.Add((Action-Button '忽略' $task.id 'ignored')) | Out-Null
             $buttons.Children.Add((Action-Button '调优先级' $task.id 'priority')) | Out-Null
-        } else { $buttons.Children.Add((Action-Button '重新加入' $task.id 'active')) | Out-Null }
+        } elseif ($task.status -ne 'idea') { $buttons.Children.Add((Action-Button '重新加入' $task.id 'active')) | Out-Null }
+        if ($task.sourceId -eq 'manual') {
+            $edit=New-Object Windows.Controls.Button; $edit.Content='修改想法'; $edit.Tag=$task.id; $edit.Padding='8,5'; $edit.FontSize=11
+            $edit.Add_Click({Show-IdeaEditor $this.Tag}); [void]$buttons.Children.Add($edit)
+        }
         $body.Children.Add($buttons) | Out-Null
         $card.Child = $body; $script:Cards.Children.Add($card) | Out-Null
     }
@@ -251,12 +261,11 @@ function Start-Check {
 }
 . (Join-Path $PSScriptRoot 'Voice.ps1')
 . (Join-Path $PSScriptRoot 'Settings.ps1')
-$script:Capture.Add_Click({Show-VoiceCapture})
-$script:Capture.Content='记录想法 · 按住 ' + $script:Settings.voiceHotkey + ' 说话'
+$script:Capture.Add_Click({$script:Filter='ideas'; $script:ShowAll=$false; Render-Tasks})
+Update-VoiceCaption
 Update-AnalysisCaption
 $script:IntervalLabel.Text = '每 ' + $script:Settings.intervalMinutes + ' 分钟 · 仅变化时分析'
 $script:SettingsButton.Add_Click({
-    if ($script:Worker -and -not $script:Worker.HasExited) { [void][Windows.MessageBox]::Show('请等待当前分析完成后再更换服务。'); return }
     Show-AnalysisSettings
 })
 $script:Header.Add_MouseLeftButtonDown({ if ($_.OriginalSource -isnot [System.Windows.Controls.Button]) { $script:Window.DragMove() } })
@@ -349,7 +358,7 @@ if (-not $Preview -or $SelfTest) {
     $script:Tray.Icon = [Drawing.SystemIcons]::Application; $script:Tray.Text = '对话待办 · 后台扫描'; $script:Tray.Visible = $true
     $menu = New-Object Windows.Forms.ContextMenuStrip
     $show = $menu.Items.Add('显示待办'); $show.Add_Click({ $script:Window.Show(); $script:Window.Activate() })
-    $capture = $menu.Items.Add('记录想法'); $capture.Add_Click({Show-VoiceCapture})
+    $captureMenuItem = $menu.Items.Add('我的想法'); $captureMenuItem.Add_Click({$script:Filter='ideas';Render-Tasks;$script:Window.Show();[void]$script:Window.Activate()})
     $exit = $menu.Items.Add('退出，停止扫描'); $exit.Add_Click({ $script:Exiting = $true; $script:Window.Close() })
     $script:Tray.ContextMenuStrip = $menu
     $script:Tray.Add_DoubleClick({ $script:Window.Show(); $script:Window.Activate() })
@@ -362,6 +371,9 @@ if ($SelfTest) {
     $script:Window.Show(); $script:Window.UpdateLayout()
     function Click-Control($Control) { $Control.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent))) }
     function Check($Condition, $Message) { if (-not $Condition) { throw $Message } }
+    Check ($script:Capture -is [Windows.Controls.Button]) 'Tray overwrote the WPF capture button'
+    Save-VoicePreferences @{key=114;modifiers=0;label='F3'} $script:Settings.voiceModel 'auto'
+    Check ($script:Capture.Content.Contains('F3')) 'Shortcut save failed after tray creation'
     Check ($script:Count.Text -eq '2') 'Active count failed'
     Click-Control $script:PendingTab
     Check ($script:Filter -eq 'pending') 'Pending tab failed'
@@ -398,8 +410,12 @@ if ($SelfTest) {
     Check ((Read-Json $settingsPath).paused) 'Persist pause failed'
     $voiceTask = Save-VoiceTask "记录下一次发布的想法`n完整内容保存在本机。"
     $script:State = [pscustomobject]@{tasks=[pscustomobject]@{};sources=[pscustomobject]@{}}
+    Click-Control $script:Capture
+    Check ($script:Cards.Children[0].Child.Children[1].Text -eq $voiceTask.title) 'Idea disappeared when analysis state was replaced'
+    Check ($script:Count.Text -eq '0') 'Unconfirmed idea entered active tasks'
+    Click-Control $script:Cards.Children[0].Child.Children[4].Children[0]
     Click-Control $script:ActiveTab
-    Check ($script:Count.Text -eq '1') 'Manual task disappeared when analysis state was replaced'
+    Check ($script:Count.Text -eq '1') 'Add idea to active tasks failed'
     $buttons = $script:Cards.Children[0].Child.Children[4]
     Click-Control $buttons.Children[2]
     Check ($script:Actions[$voiceTask.id].priority -eq 3) 'Manual priority failed'

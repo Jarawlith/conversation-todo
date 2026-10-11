@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 $DataDir=Join-Path $PSScriptRoot ('model-settings-'+[guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($DataDir)
-$script:Settings=@{provider='hosted';intervalMinutes=30;hostedModel='deepseek/deepseek-v4-flash-0731';serviceUrl='http://127.0.0.1:18787/analyze';codexModel='gpt-6-luna';setupComplete=$false}
+$script:Settings=@{provider='hosted';intervalMinutes=30;hostedModel='deepseek/deepseek-v4-flash-0731';serviceUrl='http://127.0.0.1:18787/analyze';codexModel='gpt-6-luna';apiBase='https://api.deepseek.com';claudeModel='haiku';setupComplete=$false}
 $script:Edition=$(if($Overseas){'overseas'}else{'mainland'})
 $script:Window=New-Object Windows.Window
 $script:IntervalLabel=New-Object Windows.Controls.TextBlock
@@ -16,7 +16,7 @@ $timer=New-Object Windows.Threading.DispatcherTimer;$timer.Interval=[timespan]::
 $timer.Add_Tick({
     try {
         $script:ticks++;if($script:ticks -gt 180){throw 'Model refresh timed out'}
-        $dialog=$script:Window.OwnedWindows[0];$panel=$dialog.Content.Content
+        $dialog=$script:Window.OwnedWindows[0];$panel=$dialog.Content.Tag.analysis
         $hosted=@($panel.Children|Where-Object {$_ -is [Windows.Controls.StackPanel]})[2]
         $combos=@($hosted.Children|Where-Object {$_ -is [Windows.Controls.ComboBox]})
         $refresh=@($hosted.Children|Where-Object {$_ -is [Windows.Controls.Button]})[0]

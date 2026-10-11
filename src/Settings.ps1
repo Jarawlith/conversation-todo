@@ -3,8 +3,8 @@
 Add-Type -AssemblyName Microsoft.PowerShell.Security
 Import-Module -Assembly ([Microsoft.PowerShell.Commands.ConvertToSecureStringCommand].Assembly) -Global -Force -ErrorAction Stop
     $dialog = New-Object Windows.Window
-    $dialog.Title = '设置 · 对话待办'; $dialog.Width = 580; $dialog.Height = 760
-    $dialog.MinWidth = 500; $dialog.MinHeight = 600
+    $dialog.Title = '设置 · 对话待办'; $dialog.Width = 760; $dialog.Height = 720
+    $dialog.MinWidth = 660; $dialog.MinHeight = 560
     $dialog.Background = '#111B29'; $dialog.Foreground = '#E8EEF6'
     $dialog.FontFamily = 'Microsoft YaHei UI'
     $themeReader = [Xml.XmlReader]::Create((Join-Path $PSScriptRoot 'SettingsTheme.xaml'))
@@ -21,7 +21,7 @@ Import-Module -Assembly ([Microsoft.PowerShell.Commands.ConvertToSecureStringCom
         $b = New-Object Windows.Controls.TextBox; $b.Text = [string]$value; $b.Padding = '12,9'
         [void]$panel.Children.Add($b); return $b
     }
-    $heading = New-Object Windows.Controls.TextBlock; $heading.Text = '设置'; $heading.FontSize = 25; $heading.FontWeight = 'SemiBold'; $heading.Foreground = '#E8EEF6'
+    $heading = New-Object Windows.Controls.TextBlock; $heading.Text = '分析服务'; $heading.FontSize = 25; $heading.FontWeight = 'SemiBold'; $heading.Foreground = '#E8EEF6'
     [void]$panel.Children.Add($heading)
     Label '让对话变成下一步。随时调整，已有待办会保留。'
     Label '分析方式'
@@ -236,10 +236,7 @@ Import-Module -Assembly ([Microsoft.PowerShell.Commands.ConvertToSecureStringCom
             $openExtensions.Content = '路径已复制 · 加载时粘贴即可'
         } catch { [void][Windows.MessageBox]::Show($_.Exception.Message,'Chrome 网页采集') }
     }.GetNewClosure())
-    [void]$guidePanel.Children.Add($openExtensions); $browserGuide.Content = $guidePanel; [void]$panel.Children.Add($browserGuide)
-    $voiceOptions=New-Object Windows.Controls.Button; $voiceOptions.Content='语音记录 · 快捷键与语言'; $voiceOptions.Margin='0,14,0,0'
-    $voiceOptions.Add_Click({ Show-VoiceSettings })
-    $voiceSection=New-Object Windows.Controls.Expander; $voiceSection.Header='语音记录'; $voiceSection.Content=$voiceOptions; [void]$panel.Children.Add($voiceSection)
+    [void]$guidePanel.Children.Add($openExtensions); $browserGuide.Content = $guidePanel
     Label '必要对话文字会发送至所选服务，并消耗相应订阅额度或 API 费用。网页只采集已打开、已加载的消息。'
     $consent = New-Object Windows.Controls.CheckBox; $consentText = New-Object Windows.Controls.TextBlock; $consentText.Text = '同意发送必要对话文字，并开启后台分析'; $consentText.TextWrapping = 'Wrap'
     $consent.Content = $consentText
@@ -247,6 +244,7 @@ Import-Module -Assembly ([Microsoft.PowerShell.Commands.ConvertToSecureStringCom
     $save = New-Object Windows.Controls.Button; $save.Content = '保存并启用'; $save.Padding = '14,12'; $save.Margin = '0,22,0,0'; $save.Background = '#284E49'; $save.Foreground = '#BCEFE4'
     $save.Add_Click({
         try {
+            if ($script:Worker -and -not $script:Worker.HasExited) { throw '请等待当前分析完成后再更换分析服务。语音设置仍可单独保存。' }
             if (-not $consent.IsChecked) { throw '请先确认后台分析授权。' }
             $selected = $ids[$provider.SelectedIndex]
             if ($selected -eq 'byok' -or $selected -eq 'hosted') {
@@ -282,6 +280,45 @@ Import-Module -Assembly ([Microsoft.PowerShell.Commands.ConvertToSecureStringCom
             $dialog.DialogResult = $true
         } catch { [void][Windows.MessageBox]::Show($_.Exception.Message,'设置未保存') }
     })
-    [void]$panel.Children.Add($save); $scroll.VerticalScrollBarVisibility = 'Auto'; $scroll.HorizontalScrollBarVisibility = 'Disabled'; $scroll.Content = $panel; $dialog.Content = $scroll
-    [void]$dialog.ShowDialog()
+    [void]$panel.Children.Add($save)
+    $root=New-Object Windows.Controls.Grid
+    $left=New-Object Windows.Controls.ColumnDefinition; $left.Width='150'; [void]$root.ColumnDefinitions.Add($left)
+    $right=New-Object Windows.Controls.ColumnDefinition; $right.Width='*'; [void]$root.ColumnDefinitions.Add($right)
+    $nav=New-Object Windows.Controls.StackPanel; $nav.Margin='16,24,0,0'
+    $navTitle=New-Object Windows.Controls.TextBlock; $navTitle.Text='设置'; $navTitle.FontSize=22; $navTitle.Margin='12,0,0,22'; [void]$nav.Children.Add($navTitle)
+    [void]$root.Children.Add($nav)
+    $scroll.VerticalScrollBarVisibility='Auto'; $scroll.HorizontalScrollBarVisibility='Disabled'
+    [Windows.Controls.Grid]::SetColumn($scroll,1); [void]$root.Children.Add($scroll)
+    $voicePage=if (Get-Command New-VoiceSettingsPanel -ErrorAction SilentlyContinue) {New-VoiceSettingsPanel} else {New-Object Windows.Controls.StackPanel}
+    $browserPage=New-Object Windows.Controls.StackPanel; $browserPage.Margin='28,22,28,28'; $panel=$browserPage
+    $title=New-Object Windows.Controls.TextBlock; $title.Text='网页采集'; $title.FontSize=25; [void]$panel.Children.Add($title)
+    Label '本机 Codex 和 Claude Code 历史会自动读取。网页对话需开启 Chrome 扩展。'
+    $browserGuide.IsExpanded=$true; [void]$panel.Children.Add($browserGuide)
+    Label '只采集打开且已加载的消息，不自动滚动。未加载的网页历史不会进入分析。'
+    $privacyPage=New-Object Windows.Controls.StackPanel; $privacyPage.Margin='28,22,28,28'; $panel=$privacyPage
+    $title=New-Object Windows.Controls.TextBlock; $title.Text='隐私与数据'; $title.FontSize=25; [void]$panel.Children.Add($title)
+    Label '对话在本机读取；启用分析后，必要文字发送到你选择的模型服务。费用由相应订阅或 API 账户承担。'
+    Label '语音在本机识别，只保存文字。录音识别后删除；我的想法不会发送给对话分析服务。'
+    Label '可在主界面点击「暂停」停止对话扫描，在「对话」里排除会话。排除会删除该会话生成的任务，不修改原始日志。'
+    Label '待办、想法、设置和加密密钥保存在当前 Windows 用户的本机数据目录。卸载会保留这些数据。'
+    $pages=@($outer,$voicePage,$browserPage,$privacyPage); $navButtons=@()
+    $titles=@('分析服务','语音记录','网页采集','隐私与数据')
+    for ($i=0;$i -lt $pages.Count;$i++) {
+        $button=New-Object Windows.Controls.Button; $button.Content=$titles[$i]; $button.Margin='0,0,0,8'; $button.HorizontalContentAlignment='Left'; $button.Padding='12,12'
+        $button.Tag=@{page=$pages[$i];scroll=$scroll;nav=$nav}
+        $button.Add_Click({
+            foreach ($b in $this.Tag.nav.Children | Where-Object {$_ -is [Windows.Controls.Button]}) {$b.Background='#202C3D'}
+            $this.Background='#36506E'; $this.Tag.scroll.Content=$this.Tag.page; $this.Tag.scroll.ScrollToTop()
+        })
+        [void]$nav.Children.Add($button); $navButtons+=$button
+    }
+    $scroll.Content=$outer; $navButtons[0].Background='#36506E'
+    $root.Tag=@{analysis=$outer;voice=$voicePage;browser=$browserPage;privacy=$privacyPage;navigation=$navButtons;scroll=$scroll}
+    $dialog.Content=$root
+    $script:VoiceSettingsOpen=$true
+    if (Get-Command Remove-VoiceHotkey -ErrorAction SilentlyContinue) {Remove-VoiceHotkey}
+    try { [void]$dialog.ShowDialog() } finally {
+        $script:VoiceSettingsOpen=$false
+        if (Get-Command Set-VoiceHotkey -ErrorAction SilentlyContinue) {try {Set-VoiceHotkey} catch {Set-VoiceNotice $_.Exception.Message}}
+    }
 }

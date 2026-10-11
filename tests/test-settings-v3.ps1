@@ -1,4 +1,4 @@
-param([switch]$Overseas)
+﻿param([switch]$Overseas)
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 $DataDir=Join-Path $PSScriptRoot ('settings-v3-'+[guid]::NewGuid().ToString('N'))
@@ -18,7 +18,7 @@ $timer.Interval=[timespan]::FromMilliseconds(200)
 $timer.Add_Tick({
     $timer.Stop()
     try {
-        $dialog=$script:Window.OwnedWindows[0];$p=$dialog.Content.Content
+        $dialog=$script:Window.OwnedWindows[0];$p=$dialog.Content.Tag.analysis
         $combos=@($p.Children|Where-Object {$_ -is [Windows.Controls.ComboBox]})
         if ($Overseas -and $combos[0].Items.Count -ne 3) {throw 'Overseas provider choices failed'}; $combos[0].SelectedIndex=$(if($Overseas){0}else{3});$combos[1].SelectedIndex=3; $dialog.UpdateLayout(); $bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap(540,730,96,96,[Windows.Media.PixelFormats]::Pbgra32); $bitmap.Render($dialog); $encoder=New-Object Windows.Media.Imaging.PngBitmapEncoder; $encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap)); $stream=[IO.File]::Create((Join-Path $PSScriptRoot '../.build/SettingsPreview-0.3.png')); $encoder.Save($stream); $stream.Close()
         $apiPanel=@($p.Children|Where-Object {$_ -is [Windows.Controls.StackPanel]})[3]

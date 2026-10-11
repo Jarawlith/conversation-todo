@@ -1,4 +1,4 @@
-﻿#define ProductVersion "0.8.0"
+﻿#define ProductVersion "0.9.0"
 [Setup]
 AppId={{8FA8CB17-8D26-495F-9D5B-11801305BF6E}
 AppName=对话待办
@@ -17,7 +17,7 @@ DisableProgramGroupPage=yes
 DisableReadyPage=yes
 OutputDir=..\dist
 #ifndef InstallerTest
-OutputBaseFilename=ConversationTodo-Mainland-Setup-0.8.0
+OutputBaseFilename=ConversationTodo-Mainland-Setup-0.9.0
 #endif
 Compression=lzma2
 SolidCompression=yes
