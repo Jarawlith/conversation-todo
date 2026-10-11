@@ -237,6 +237,9 @@ Import-Module -Assembly ([Microsoft.PowerShell.Commands.ConvertToSecureStringCom
         } catch { [void][Windows.MessageBox]::Show($_.Exception.Message,'Chrome 网页采集') }
     }.GetNewClosure())
     [void]$guidePanel.Children.Add($openExtensions); $browserGuide.Content = $guidePanel; [void]$panel.Children.Add($browserGuide)
+    $voiceOptions=New-Object Windows.Controls.Button; $voiceOptions.Content='语音记录 · 快捷键与语言'; $voiceOptions.Margin='0,14,0,0'
+    $voiceOptions.Add_Click({ Show-VoiceSettings })
+    $voiceSection=New-Object Windows.Controls.Expander; $voiceSection.Header='语音记录'; $voiceSection.Content=$voiceOptions; [void]$panel.Children.Add($voiceSection)
     Label '必要对话文字会发送至所选服务，并消耗相应订阅额度或 API 费用。网页只采集已打开、已加载的消息。'
     $consent = New-Object Windows.Controls.CheckBox; $consentText = New-Object Windows.Controls.TextBlock; $consentText.Text = '同意发送必要对话文字，并开启后台分析'; $consentText.TextWrapping = 'Wrap'
     $consent.Content = $consentText

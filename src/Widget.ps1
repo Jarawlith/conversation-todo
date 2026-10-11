@@ -21,7 +21,7 @@ $script:Actions = @{}
 $script:State = $null
 $script:ShowAll = $false
 $script:Exiting = $false
-$script:Settings = @{paused=$false;excluded=@();running=$true;intervalMinutes=30;provider="codex";codexModel="gpt-6-luna";codexEffort="medium";claudeModel="haiku";apiProtocol="openai";apiBase="https://api.deepseek.com";apiModel="deepseek-flash";serviceUrl="";claudePath="";setupComplete=$false}
+$script:Settings = @{paused=$false;excluded=@();running=$true;intervalMinutes=30;provider="codex";codexModel="gpt-6-luna";codexEffort="medium";claudeModel="haiku";apiProtocol="openai";apiBase="https://api.deepseek.com";apiModel="deepseek-flash";serviceUrl="";claudePath="";setupComplete=$false;voiceModel="sensevoice-small-int8-2024-07-17";voiceLanguage="auto";voiceKey=113;voiceModifiers=0;voiceHotkey="F2"}
 $script:Node = Join-Path $PSScriptRoot 'runtime/node.exe'
 if (-not (Test-Path -LiteralPath $script:Node)) { $script:Node = (Get-Command node.exe -ErrorAction SilentlyContinue | Select-Object -First 1).Source }
 if (-not $script:Node) {
@@ -109,6 +109,7 @@ $layout = @'
     <StackPanel x:Name="Cards"/>
    </ScrollViewer>
    <StackPanel Grid.Row="4" x:Name="Footer" Margin="0,14,0,0">
+    <Button x:Name="Capture" Content="记录想法 · 按住 F2 说话" Margin="0,0,0,8"/>
     <Button x:Name="More" Content="展开其他任务" Visibility="Collapsed" Margin="0,0,0,8"/>
     <TextBlock x:Name="Status" Text="准备检查 Codex、Claude Code 与网页对话…" FontSize="11" Foreground="#8BA0BA" TextWrapping="Wrap" MaxHeight="60"/>
     <Grid Margin="0,9,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -126,7 +127,7 @@ $reader = New-Object System.Xml.XmlNodeReader ([xml]$layout)
 $script:Window = [Windows.Markup.XamlReader]::Load($reader)
 $themeReader = [Xml.XmlReader]::Create((Join-Path $PSScriptRoot 'SettingsTheme.xaml'))
 try { $script:Window.Resources.MergedDictionaries.Add([Windows.Markup.XamlReader]::Load($themeReader)) } finally { $themeReader.Close() }
-foreach ($name in @('Header','Pin','Collapse','Close','Summary','Count','Refresh','Tabs','ActiveTab','PendingTab','DoneTab','IgnoredTab','Scroller','Cards','Footer','Status','Pause','Sources','More','SettingsButton','IntervalLabel','ModelLabel')) {
+foreach ($name in @('Header','Pin','Collapse','Close','Summary','Count','Refresh','Tabs','ActiveTab','PendingTab','DoneTab','IgnoredTab','Scroller','Cards','Footer','Status','Pause','Sources','More','SettingsButton','IntervalLabel','ModelLabel','Capture')) {
     Set-Variable -Scope Script -Name $name -Value $script:Window.FindName($name)
 }
 $area = [System.Windows.SystemParameters]::WorkArea
@@ -153,7 +154,7 @@ function Action-Button($Label, $Id, $Action) {
         $old = $script:Actions[$info.Id]
         $priority = $null; if ($old) { $priority = $old.priority }
         if ($info.Action -eq 'priority') {
-            if ($null -eq $priority) { $priority = $script:State.tasks.PSObject.Properties[$info.Id].Value.priority }
+            if ($null -eq $priority) { $priority = (@(Get-DisplayTasks) | Where-Object id -eq $info.Id | Select-Object -First 1).priority }
             $priority = ([int]$priority % 3) + 1
             $status = $null; if ($old) { $status = $old.status }
             $script:Actions[$info.Id] = @{ status = $status; priority = $priority; updated = [datetime]::UtcNow.ToString('o') }
@@ -162,12 +163,16 @@ function Action-Button($Label, $Id, $Action) {
     })
     return $button
 }
+function Get-DisplayTasks {
+    if ($script:State -and $script:State.tasks) { foreach ($p in $script:State.tasks.PSObject.Properties) { $p.Value } }
+    Read-ManualTasks
+}
 function Render-Tasks {
     $script:Cards.Children.Clear()
     $all = @()
-    if ($script:State -and $script:State.tasks) {
-        $all = @($script:State.tasks.PSObject.Properties | ForEach-Object {
-            $task = $_.Value | Select-Object *
+    if (@(Get-DisplayTasks).Count) {
+        $all = @(Get-DisplayTasks | ForEach-Object {
+            $task = $_ | Select-Object *
             $action = $script:Actions[$task.id]
             if ($action) {
                 if ($action.status -and (-not $task.resolvedAt -or $action.updated -gt $task.resolvedAt -or $action.status -ne 'active')) { $task.status = $action.status }
@@ -185,7 +190,7 @@ function Render-Tasks {
     $script:More.Content = if ($script:ShowAll) { '收起，只看前三项' } else { '展开其他 ' + [math]::Max(0, $tasks.Count - 3) + ' 项' }
     if (-not $script:ShowAll) { $tasks = @($tasks | Select-Object -First 3) }
     if (-not $tasks.Count) {
-        $empty = @{ active='这里还没有待办。对话分析后，有依据的下一步会显示在这里。'; pending='AI 建议会出现在这里，由你决定是否加入待办。'; done='完成的待办会保留在这里。'; ignored='忽略的待办会保留在这里，可以重新加入。' }[$script:Filter]
+        $empty = @{ active='这里还没有待办。可以检查对话，也可以按住快捷键记录想法。'; pending='AI 建议会出现在这里，由你决定是否加入待办。'; done='完成的待办会保留在这里。'; ignored='忽略的待办会保留在这里，可以重新加入。' }[$script:Filter]
         $script:Cards.Children.Add((Text-Line $empty 13 '#8BA0BA')) | Out-Null
     }
     foreach ($task in $tasks) {
@@ -208,7 +213,7 @@ function Render-Tasks {
         $open.Content = '打开来源'; $open.FontSize = 10
         $open.Tag = if ($task.sourceUrl) { $task.sourceUrl } elseif ($task.sourceType -eq 'Claude Code') { $task.sourceFile } else { 'codex://threads/' + $task.sourceId }
         $open.Add_Click({ Start-Process $this.Tag })
-        $details.Children.Add($open) | Out-Null
+        if ($task.sourceId -ne 'manual') { $details.Children.Add($open) | Out-Null }
         $source.Content = $details; $body.Children.Add($source) | Out-Null
         $buttons = New-Object System.Windows.Controls.WrapPanel
         if ($task.status -eq 'pending') { $buttons.Children.Add((Action-Button '加入待办' $task.id 'active')) | Out-Null }
@@ -244,7 +249,10 @@ function Start-Check {
     $script:LastCheck = [datetime]::Now
     $script:Status.Text = '正在检查本机对话…'
 }
+. (Join-Path $PSScriptRoot 'Voice.ps1')
 . (Join-Path $PSScriptRoot 'Settings.ps1')
+$script:Capture.Add_Click({Show-VoiceCapture})
+$script:Capture.Content='记录想法 · 按住 ' + $script:Settings.voiceHotkey + ' 说话'
 Update-AnalysisCaption
 $script:IntervalLabel.Text = '每 ' + $script:Settings.intervalMinutes + ' 分钟 · 仅变化时分析'
 $script:SettingsButton.Add_Click({
@@ -341,6 +349,7 @@ if (-not $Preview -or $SelfTest) {
     $script:Tray.Icon = [Drawing.SystemIcons]::Application; $script:Tray.Text = '对话待办 · 后台扫描'; $script:Tray.Visible = $true
     $menu = New-Object Windows.Forms.ContextMenuStrip
     $show = $menu.Items.Add('显示待办'); $show.Add_Click({ $script:Window.Show(); $script:Window.Activate() })
+    $capture = $menu.Items.Add('记录想法'); $capture.Add_Click({Show-VoiceCapture})
     $exit = $menu.Items.Add('退出，停止扫描'); $exit.Add_Click({ $script:Exiting = $true; $script:Window.Close() })
     $script:Tray.ContextMenuStrip = $menu
     $script:Tray.Add_DoubleClick({ $script:Window.Show(); $script:Window.Activate() })
@@ -387,6 +396,17 @@ if ($SelfTest) {
     Check ($script:Cards.Children.Count -eq 4) 'Expand remaining failed'
     Click-Control $script:Pause
     Check ((Read-Json $settingsPath).paused) 'Persist pause failed'
+    $voiceTask = Save-VoiceTask "记录下一次发布的想法`n完整内容保存在本机。"
+    $script:State = [pscustomobject]@{tasks=[pscustomobject]@{};sources=[pscustomobject]@{}}
+    Click-Control $script:ActiveTab
+    Check ($script:Count.Text -eq '1') 'Manual task disappeared when analysis state was replaced'
+    $buttons = $script:Cards.Children[0].Child.Children[4]
+    Click-Control $buttons.Children[2]
+    Check ($script:Actions[$voiceTask.id].priority -eq 3) 'Manual priority failed'
+    Click-Control $script:Cards.Children[0].Child.Children[4].Children[0]
+    Click-Control $script:DoneTab
+    Check ($script:Cards.Children[0].Child.Children[1].Text -eq $voiceTask.title) 'Manual complete failed'
+    Check (@(Read-ManualTasks)[0].evidence.Contains('完整内容')) 'Manual full text persistence failed'
     Click-Control $script:Close
     Check (-not $script:Window.IsVisible -and $script:Tray.Visible) 'Close to tray failed'
     $script:Exiting = $true

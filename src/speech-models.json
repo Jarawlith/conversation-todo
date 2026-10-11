@@ -1,0 +1,15 @@
+[
+  {
+    "id": "sensevoice-small-int8-2024-07-17",
+    "name": "SenseVoiceSmall · 本地识别",
+    "engine": "sherpa-sensevoice",
+    "languages": ["auto", "zh", "yue", "en"],
+    "file": "model.int8.onnx",
+    "tokens": "voice-tokens.txt",
+    "sha256": "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51",
+    "url": "https://github.com/Jarawlith/conversation-todo/releases/download/v0.8.0/SenseVoiceSmall-2024-07-17-int8.onnx.gz",
+    "compression": "gzip",
+    "downloadMB": 160,
+    "license": "SenseVoice-MODEL-LICENSE.txt"
+  }
+]

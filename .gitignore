@@ -1,4 +1,5 @@
 .build/
+src/node_modules/
 dist/
 *.secret
 .env*

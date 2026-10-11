@@ -1,4 +1,4 @@
-# Conversation Todo
+﻿# Conversation Todo
 
 [简体中文](README.md) · [English](README.en.md)
 
@@ -10,7 +10,7 @@ Only the **mainland China preview edition** is currently released. Its UI is Sim
 
 ## Install
 
-Download `ConversationTodo-Mainland-Setup-0.7.5.exe` from [Releases](https://github.com/Jarawlith/conversation-todo/releases) and run it. The installer includes Node.js; no separate Node installation, manual PowerShell execution, or administrator privileges are required. Windows 10 / 11 x64 is supported.
+Download `ConversationTodo-Mainland-Setup-0.8.0.exe` from [Releases](https://github.com/Jarawlith/conversation-todo/releases) and run it. The installer includes Node.js; no separate Node installation, manual PowerShell execution, or administrator privileges are required. Windows 10 / 11 x64 is supported.
 
 Choose desktop shortcuts and startup behavior during installation. On first launch, select an analysis method and authorize sending necessary conversation text to that service. Closing the widget minimizes it to the tray; use its tray menu to exit.
 
@@ -25,10 +25,21 @@ The preview installer is unsigned and may appear as an unknown publisher. Uninst
 - Explicit completion or cancellation updates existing tasks while retaining records. Sources remain separate across conversations; there is no automatic cross-conversation deduplication.
 - Pause collection and analysis, or exclude a conversation. Exclusion removes derived tasks and locally captured web text without editing original logs.
 - Dark, draggable, collapsible, always-on-top widget with tray and startup support.
+- Hold the global F2 shortcut to capture an idea, release to transcribe locally, then edit and confirm before saving a task. Mandarin, Cantonese and English are supported; the shortcut is configurable.
 
 ![Settings example](docs/settings.png)
 
 ## Analysis methods
+
+### Quick voice capture
+
+Hold **F2** to record and release to transcribe. First use downloads an INT8 SenseVoiceSmall model (about 160 MB compressed, 239 MB on disk) from GitHub; after downloading, hold the shortcut again. Subsequent recognition works offline, without Windows voice typing, cloud transcription or subscription/API token costs. Original model rights belong to its authors.
+
+Expand **Voice capture** in Settings, or open voice settings from the capture window, to change the shortcut and select automatic language detection, Mandarin, Cantonese or English. Choose another shortcut if one is occupied. Recording uses the Windows default microphone and requires desktop microphone permission.
+
+Only **Save as task** persists the editable text; cancel creates no task. Audio is transient, removed after inference or cancellation; crash leftovers are cleaned on next launch. Captured tasks are stored separately from conversation analysis and are not submitted to that analysis service. Voice capture does not require an analysis subscription or key.
+
+Each recording is limited to two minutes, with bounded inference chunks for longer audio; boundaries may affect recognition. The model loads per capture and the worker exits afterward to release RAM. Check names, numbers and accents before saving. [Model adapter architecture](docs/SPEECH-ENGINES.md)
 
 | Method | Requirements and cost |
 | --- | --- |

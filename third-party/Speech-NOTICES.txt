@@ -1,0 +1,18 @@
+Local voice capture uses SenseVoiceSmall, originally released by Alibaba / FunAudioLLM (QwenAudio).
+Official model: https://huggingface.co/FunAudioLLM/SenseVoiceSmall
+Original model license: FunASR Model Open Source License Agreement v1.1 (included).
+Official commercial use clarification: https://github.com/QwenAudio/SenseVoice/issues/334
+
+INT8 ONNX conversion: sherpa-onnx / csukuangfj, version 2024-07-17.
+https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
+The model is redistributed unchanged; gzip compression does not alter the ONNX weights.
+Tokenizer: tokens.txt from the same conversion, bundled as voice-tokens.txt.
+
+Native inference and JavaScript adapter library: sherpa-onnx-node / sherpa-onnx-win-x64 1.13.8.
+Copyright the sherpa-onnx contributors; Apache License 2.0 (included).
+https://github.com/k2-fsa/sherpa-onnx
+
+ONNX Runtime: Copyright Microsoft Corporation; MIT license (included).
+https://github.com/microsoft/onnxruntime
+
+No application code from VocoType is incorporated.
